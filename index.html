@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IceTracker V4</title>
+    <style>
+        :root {
+            --bg-color: #121212;
+            --glass-bg: rgba(30, 30, 35, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+            --text-main: #e0e0e0;
+            --text-muted: #888;
+            --accent: #00e5ff;
+            --accent-speed: #ff9100; /* Доп цвет для скорости */
+        }
+
+        body {
+            margin: 0; padding: 20px; font-family: -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 50% 0%, #2a2a35, #121212 70%);
+            background-attachment: fixed; color: var(--text-main);
+            display: flex; flex-direction: column; align-items: center; min-height: 100vh;
+        }
+
+        .glass-panel {
+            background: var(--glass-bg); backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px); border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow); border-radius: 20px; padding: 24px;
+            width: 100%; max-width: 400px; margin-bottom: 20px; box-sizing: border-box;
+        }
+
+        h1 { margin: 0 0 10px 0; font-size: 28px; font-weight: 600; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .status-dot { width: 12px; height: 12px; background-color: #555; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: all 0.3s; }
+        .status-dot.connected { background-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
+        p#status { text-align: center; color: var(--text-muted); margin: 0 0 20px 0; font-size: 14px; }
+
+        button {
+            width: 100%; padding: 14px; margin-bottom: 12px; font-size: 16px; font-weight: 500;
+            color: var(--text-main); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border);
+            border-radius: 12px; cursor: pointer; transition: all 0.2s; backdrop-filter: blur(4px);
+        }
+        button:active { transform: scale(0.97); background: rgba(255, 255, 255, 0.1); }
+        button.primary { background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.3); color: var(--accent); }
+
+        /* Изменили сетку на 2 колонки и 2 строки */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px 10px; /* Отступы между строками и колонками */
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 32px; font-weight: 700; color: var(--accent);
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.4); margin-bottom: 4px;
+        }
+        .stat-value.speed { color: var(--accent-speed); text-shadow: 0 0 20px rgba(255, 145, 0, 0.4); }
+
+        .stat-label { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; }
+        .history-log { font-family: monospace; font-size: 13px; color: #aaa; max-height: 200px; overflow-y: auto; line-height: 1.5; }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+    </style>
+</head>
+<body>
+
+    <div class="glass-panel">
+        <h1><div id="led" class="status-dot"></div> IceTracker V4.1</h1>
+        <p id="status">Disconnected</p>
+        <button id="btnConnect" class="primary">Connect Tracker</button>
+        <button id="btnCalibrate" style="display: none;">Calibrate Gyro</button>
+    </div>
+
+    <div class="glass-panel">
+        <h3 style="text-align: center; margin-top: 0; color: var(--text-muted); font-weight: 500;">LAST JUMP</h3>
+        <div class="stats-grid">
+            <div>
+                <div class="stat-value" id="valHeight">0.0</div>
+                <div class="stat-label">Height (cm)</div>
+            </div>
+            <div>
+                <div class="stat-value" id="valRots">0.0</div>
+                <div class="stat-label">Rotations</div>
+            </div>
+            <div>
+                <div class="stat-value" id="valTime">0</div>
+                <div class="stat-label">Time (ms)</div>
+            </div>
+            <div>
+                <div class="stat-value speed" id="valSpeed">0.0</div>
+                <div class="stat-label">Speed (Rev/s)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="glass-panel">
+        <h3 style="text-align: center; margin-top: 0; color: var(--text-muted); font-weight: 500;">HISTORY</h3>
+        <div class="history-log" id="logHistory">Waiting for jumps...</div>
+    </div>
+
+    <script>
+        const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+        const CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+        const CMD_UUID = "19b10001-e8f2-537e-4f6c-d104768a1214";
+
+        let bleDevice, bleServer, dataChar, cmdChar;
+
+        const btnConnect = document.getElementById('btnConnect');
+        const btnCalibrate = document.getElementById('btnCalibrate');
+        const statusEl = document.getElementById('status');
+        const ledEl = document.getElementById('led');
+        const logEl = document.getElementById('logHistory');
+
+        btnConnect.addEventListener('click', async () => {
+            if (bleDevice && bleDevice.gatt.connected) {
+                bleDevice.gatt.disconnect(); return;
+            }
+            try {
+                statusEl.innerText = "Scanning...";
+                bleDevice = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'IceTracker_V4' }],
+                    optionalServices: [SERVICE_UUID]
+                });
+
+                bleDevice.addEventListener('gattserverdisconnected', onDisconnect);
+                statusEl.innerText = "Connecting...";
+                bleServer = await bleDevice.gatt.connect();
+                
+                const service = await bleServer.getPrimaryService(SERVICE_UUID);
+                dataChar = await service.getCharacteristic(CHAR_UUID);
+                cmdChar = await service.getCharacteristic(CMD_UUID);
+
+                await dataChar.startNotifications();
+                dataChar.addEventListener('characteristicvaluechanged', handleData);
+
+                statusEl.innerText = "Connected";
+                ledEl.classList.add('connected');
+                btnConnect.innerText = "Disconnect";
+                btnCalibrate.style.display = "block";
+                
+            } catch (error) {
+                console.error(error); statusEl.innerText = "Connection failed";
+            }
+        });
+
+        function onDisconnect() {
+            statusEl.innerText = "Disconnected";
+            ledEl.classList.remove('connected');
+            btnConnect.innerText = "Connect Tracker";
+            btnCalibrate.style.display = "none";
+        }
+
+        btnCalibrate.addEventListener('click', async () => {
+            if (!cmdChar) return;
+            try {
+                let encoder = new TextEncoder();
+                await cmdChar.writeValue(encoder.encode("CALIBRATE"));
+                statusEl.innerText = "Calibrating (Keep still)...";
+                setTimeout(() => {
+                    if (bleDevice && bleDevice.gatt.connected) statusEl.innerText = "Connected (Calibrated)";
+                }, 3200); // 3 секунды по новой логике + чуть запаса
+            } catch (e) { console.error("Calibration error", e); }
+        });
+
+        function handleData(event) {
+            let value = new TextDecoder().decode(event.target.value);
+            // Expected format: H:2.2,R:1.5,T:200,S:3.1
+            let parts = value.split(',');
+            let h = "0.0", r = "0.0", t = "0", s = "0.0";
+
+            parts.forEach(p => {
+                if (p.startsWith('H:')) h = p.substring(2);
+                if (p.startsWith('R:')) r = p.substring(2);
+                if (p.startsWith('T:')) t = p.substring(2);
+                if (p.startsWith('S:')) s = p.substring(2); // Читаем скорость
+            });
+
+            document.getElementById('valHeight').innerText = h;
+            document.getElementById('valRots').innerText = r;
+            document.getElementById('valTime').innerText = t;
+            document.getElementById('valSpeed').innerText = s;
+
+            let timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
+            let logLine = `[${timeStr}] H: ${h}cm | R: ${r} | T: ${t}ms | S: ${s} rev/s<br>`;
+            
+            if (logEl.innerHTML.includes("Waiting")) logEl.innerHTML = "";
+            logEl.innerHTML = logLine + logEl.innerHTML;
+        }
+    </script>
+</body>
+</html>
