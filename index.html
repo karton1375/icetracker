@@ -4,102 +4,279 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IceTracker V4</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Fira+Code:wght@500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #121212;
-            --glass-bg: rgba(30, 30, 35, 0.4);
+            /* Modern Dark (Cinema Mobile) base — avoids pure #000 to prevent OLED smear */
+            --bg-deep: #050507;
+            --bg-base: #0a0a0d;
+            --bg-elevated: #14141a;
+            --glass-bg: rgba(20, 20, 26, 0.55);
             --glass-border: rgba(255, 255, 255, 0.08);
+            --glass-border-hover: rgba(255, 255, 255, 0.16);
             --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
-            --text-main: #e0e0e0;
-            --text-muted: #888;
-            --accent: #00e5ff;
-            --accent-speed: #ff9100; /* Доп цвет для скорости */
+
+            --text-main: #ededf0;
+            --text-muted: #8a8f98;
+            --text-faint: #54545c;
+
+            /* Accent roles stay mapped to metrics, not decorative */
+            --accent: #00e5ff;            /* height */
+            --accent-dim: rgba(0, 229, 255, 0.12);
+            --accent-speed: #ff9100;      /* speed */
+            --accent-speed-dim: rgba(255, 145, 0, 0.12);
+            --accent-weight: #b388ff;     /* weight input */
+            --accent-weight-dim: rgba(179, 136, 255, 0.12);
+
+            /* From reasoning-engine style match: Modern Dark Cinema Mobile easing */
+            --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+            --font-display: 'Barlow Condensed', -apple-system, sans-serif;
+            --font-body: 'Barlow', -apple-system, sans-serif;
+            --font-mono: 'Fira Code', ui-monospace, monospace;
         }
 
+        * { box-sizing: border-box; }
+
         body {
-            margin: 0; padding: 20px; font-family: -apple-system, sans-serif;
-            background-color: var(--bg-color);
-            background-image: radial-gradient(circle at 50% 0%, #2a2a35, #121212 70%);
+            margin: 0; padding: 24px 16px 48px; font-family: var(--font-body);
+            background-color: var(--bg-base);
+            background-image:
+                radial-gradient(circle at 18% -5%, rgba(0,229,255,0.07), transparent 45%),
+                radial-gradient(circle at 82% 8%, rgba(255,145,0,0.05), transparent 42%),
+                radial-gradient(circle at 50% 105%, var(--bg-elevated), var(--bg-deep) 70%);
             background-attachment: fixed; color: var(--text-main);
             display: flex; flex-direction: column; align-items: center; min-height: 100vh;
         }
 
         .glass-panel {
-            background: var(--glass-bg); backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px); border: 1px solid var(--glass-border);
-            box-shadow: var(--glass-shadow); border-radius: 20px; padding: 24px;
-            width: 100%; max-width: 400px; margin-bottom: 20px; box-sizing: border-box;
+            background: var(--glass-bg); backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow); border-radius: 16px; padding: 24px;
+            width: 100%; max-width: 400px; margin-bottom: 16px; box-sizing: border-box;
+            transition: border-color 0.3s var(--ease-out);
         }
 
-        h1 { margin: 0 0 10px 0; font-size: 28px; font-weight: 600; text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .status-dot { width: 12px; height: 12px; background-color: #555; border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: all 0.3s; }
-        .status-dot.connected { background-color: var(--accent); box-shadow: 0 0 15px var(--accent); }
-        p#status { text-align: center; color: var(--text-muted); margin: 0 0 20px 0; font-size: 14px; }
+        h1 {
+            margin: 0 0 4px 0; font-family: var(--font-display); font-size: 28px; font-weight: 600;
+            text-align: center; display: flex; align-items: center; justify-content: center; gap: 10px;
+            letter-spacing: 0.2px; text-transform: uppercase;
+        }
+
+        .status-dot {
+            width: 11px; height: 11px; background-color: #3a3a40; border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5); transition: background-color 0.4s var(--ease-out), box-shadow 0.4s var(--ease-out);
+            position: relative; flex-shrink: 0;
+        }
+        .status-dot.connected {
+            background-color: var(--accent); box-shadow: 0 0 16px var(--accent);
+            animation: pulse-dot 2.6s var(--ease-out) infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { box-shadow: 0 0 10px var(--accent); }
+            50% { box-shadow: 0 0 20px var(--accent), 0 0 4px var(--accent); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .status-dot.connected { animation: none; box-shadow: 0 0 14px var(--accent); }
+        }
+
+        p#status {
+            text-align: center; color: var(--text-muted); margin: 0 0 22px 0;
+            font-size: 13px; letter-spacing: 0.3px;
+        }
 
         button {
-            width: 100%; padding: 14px; margin-bottom: 12px; font-size: 16px; font-weight: 500;
-            color: var(--text-main); background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border);
-            border-radius: 12px; cursor: pointer; transition: all 0.2s; backdrop-filter: blur(4px);
+            width: 100%; padding: 14px; margin-bottom: 10px; font-family: var(--font-body);
+            font-size: 15px; font-weight: 600; letter-spacing: 0.2px;
+            color: var(--text-main); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--glass-border);
+            border-radius: 12px; cursor: pointer; transition: background-color 0.18s var(--ease-out), border-color 0.18s var(--ease-out), transform 0.12s var(--ease-out);
+            -webkit-tap-highlight-color: transparent;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-        button:active { transform: scale(0.97); background: rgba(255, 255, 255, 0.1); }
-        button.primary { background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.3); color: var(--accent); }
+        button:hover { background: rgba(255, 255, 255, 0.07); border-color: var(--glass-border-hover); }
+        button:active { transform: scale(0.97); }
+        button.primary { background: var(--accent-dim); border-color: rgba(0, 229, 255, 0.3); color: var(--accent); }
+        button.primary:hover { background: rgba(0, 229, 255, 0.18); }
+        button:last-child { margin-bottom: 0; }
+        button svg { flex-shrink: 0; }
 
-        /* Изменили сетку на 2 колонки и 2 строки */
         .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px 10px; /* Отступы между строками и колонками */
-            text-align: center;
+            display: grid; grid-template-columns: repeat(2, 1fr);
+            gap: 18px 10px; text-align: center;
         }
-
+        .stat-cell { position: relative; }
         .stat-value {
-            font-size: 32px; font-weight: 700; color: var(--accent);
-            text-shadow: 0 0 20px rgba(0, 229, 255, 0.4); margin-bottom: 4px;
+            font-family: var(--font-mono); font-size: 30px; font-weight: 600; color: var(--accent);
+            text-shadow: 0 0 20px rgba(0, 229, 255, 0.35); margin-bottom: 4px;
+            transition: transform 0.3s var(--ease-spring); font-variant-numeric: tabular-nums;
+            display: inline-block;
         }
-        .stat-value.speed { color: var(--accent-speed); text-shadow: 0 0 20px rgba(255, 145, 0, 0.4); }
+        .stat-value.speed { color: var(--accent-speed); text-shadow: 0 0 20px rgba(255, 145, 0, 0.35); }
+        .stat-value.pop { animation: pop-in 0.45s var(--ease-spring); }
+        @keyframes pop-in {
+            0% { transform: scale(0.6); opacity: 0.3; }
+            55% { transform: scale(1.12); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .stat-value.pop { animation: none; }
+        }
 
-        .stat-label { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 1px; }
-        .history-log { font-family: monospace; font-size: 13px; color: #aaa; max-height: 200px; overflow-y: auto; line-height: 1.5; }
+        .stat-label {
+            font-family: var(--font-display); font-size: 11px; text-transform: uppercase;
+            color: var(--text-muted); letter-spacing: 1.4px; font-weight: 600;
+        }
 
-        ::-webkit-scrollbar { width: 6px; }
+        .panel-title {
+            text-align: center; margin: 0 0 18px 0; color: var(--text-muted);
+            font-family: var(--font-display); font-weight: 600; font-size: 13px;
+            text-transform: uppercase; letter-spacing: 1.8px;
+        }
+
+        .history-log { font-size: 13px; color: var(--text-muted); max-height: 220px; overflow-y: auto; }
+        .log-row {
+            display: flex; align-items: center; gap: 10px; padding: 9px 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            animation: slide-in 0.35s var(--ease-out);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .log-row { animation: none; }
+        }
+        .log-row:last-child { border-bottom: none; }
+        @keyframes slide-in {
+            0% { opacity: 0; transform: translateY(-8px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .log-time { font-family: var(--font-mono); color: var(--text-faint); font-size: 11px; min-width: 56px; }
+        .log-metrics { display: flex; gap: 10px; flex: 1; font-family: var(--font-mono); }
+        .log-metrics span { font-size: 12px; }
+        .log-metrics .m-h { color: var(--accent); }
+        .log-metrics .m-r { color: var(--text-main); }
+        .log-metrics .m-s { color: var(--accent-speed); }
+        .log-empty { text-align: center; color: var(--text-faint); padding: 20px 0; font-size: 13px; }
+
+        ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 10px; }
+
+        /* --- Weight wheel picker --- */
+        .weight-display {
+            display: flex; align-items: baseline; justify-content: center; gap: 6px;
+            margin-bottom: 16px;
+        }
+        .weight-number {
+            font-family: var(--font-mono); font-size: 42px; font-weight: 600; color: var(--accent-weight);
+            text-shadow: 0 0 24px rgba(179, 136, 255, 0.35);
+            font-variant-numeric: tabular-nums; transition: transform 0.2s var(--ease-spring);
+            display: inline-block;
+        }
+        .weight-unit { font-family: var(--font-display); font-size: 16px; color: var(--text-muted); font-weight: 600; }
+
+        .wheel-wrap {
+            position: relative; height: 132px; overflow: hidden; border-radius: 14px;
+            background: rgba(255,255,255,0.02); margin-bottom: 16px;
+            border: 1px solid var(--glass-border);
+        }
+        .wheel-center-line {
+            position: absolute; top: 50%; left: 12px; right: 12px; height: 36px;
+            transform: translateY(-50%); border-radius: 9px;
+            background: var(--accent-weight-dim);
+            border: 1px solid rgba(179, 136, 255, 0.25);
+            pointer-events: none; z-index: 2;
+        }
+        #weightWheel {
+            position: absolute; top: 0; left: 0; right: 0; padding: 48px 0;
+            cursor: grab; touch-action: none;
+        }
+        .wheel-item {
+            height: 36px; display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-mono); font-size: 17px; color: var(--text-muted); user-select: none;
+            font-variant-numeric: tabular-nums; transition: color 0.15s, font-weight 0.15s;
+        }
+        .wheel-fade-top, .wheel-fade-bottom {
+            position: absolute; left: 0; right: 0; height: 44px; pointer-events: none; z-index: 1;
+        }
+        .wheel-fade-top { top: 0; background: linear-gradient(to bottom, var(--bg-base), transparent); }
+        .wheel-fade-bottom { bottom: 0; background: linear-gradient(to top, var(--bg-base), transparent); }
+
+        .weight-confirm-btn { background: var(--accent-weight-dim); border-color: rgba(179, 136, 255, 0.3); color: var(--accent-weight); }
+        .weight-confirm-btn:hover { background: rgba(179, 136, 255, 0.18); }
+        .weight-saved-note {
+            text-align: center; font-size: 11px; color: var(--text-faint); margin: 10px 0 0;
+            opacity: 0; transition: opacity 0.3s;
+        }
+        .weight-saved-note.show { opacity: 1; }
+
+        :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
     </style>
 </head>
 <body>
 
     <div class="glass-panel">
-        <h1><div id="led" class="status-dot"></div> IceTracker V4.1</h1>
+        <h1><div id="led" class="status-dot" role="status" aria-label="Connection status"></div>IceTracker V4.1</h1>
         <p id="status">Disconnected</p>
-        <button id="btnConnect" class="primary">Connect Tracker</button>
-        <button id="btnCalibrate" style="display: none;">Calibrate Gyro</button>
+        <button id="btnConnect" class="primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11"/></svg>
+            Connect tracker
+        </button>
+        <button id="btnCalibrate" style="display: none;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+            Calibrate gyro
+        </button>
     </div>
 
     <div class="glass-panel">
-        <h3 style="text-align: center; margin-top: 0; color: var(--text-muted); font-weight: 500;">LAST JUMP</h3>
+        <p class="panel-title">Athlete weight</p>
+
+        <div class="weight-display">
+            <span class="weight-number" id="weightNumber">75</span>
+            <span class="weight-unit">kg</span>
+        </div>
+
+        <div class="wheel-wrap">
+            <div class="wheel-center-line"></div>
+            <div id="weightWheel" role="slider" aria-label="Athlete weight in kilograms" aria-valuemin="20" aria-valuemax="110" aria-valuenow="75" tabindex="0"></div>
+            <div class="wheel-fade-top"></div>
+            <div class="wheel-fade-bottom"></div>
+        </div>
+
+        <button id="btnSendWeight" class="weight-confirm-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+            Apply weight
+        </button>
+        <p class="weight-saved-note" id="weightSavedNote">Saved to tracker</p>
+    </div>
+
+    <div class="glass-panel">
+        <p class="panel-title">Last jump</p>
         <div class="stats-grid">
-            <div>
+            <div class="stat-cell">
                 <div class="stat-value" id="valHeight">0.0</div>
                 <div class="stat-label">Height (cm)</div>
             </div>
-            <div>
+            <div class="stat-cell">
                 <div class="stat-value" id="valRots">0.0</div>
                 <div class="stat-label">Rotations</div>
             </div>
-            <div>
+            <div class="stat-cell">
                 <div class="stat-value" id="valTime">0</div>
                 <div class="stat-label">Time (ms)</div>
             </div>
-            <div>
+            <div class="stat-cell">
                 <div class="stat-value speed" id="valSpeed">0.0</div>
-                <div class="stat-label">Speed (Rev/s)</div>
+                <div class="stat-label">Speed (rev/s)</div>
             </div>
         </div>
     </div>
 
     <div class="glass-panel">
-        <h3 style="text-align: center; margin-top: 0; color: var(--text-muted); font-weight: 500;">HISTORY</h3>
-        <div class="history-log" id="logHistory">Waiting for jumps...</div>
+        <p class="panel-title">History</p>
+        <div class="history-log" id="logHistory">
+            <div class="log-empty">Waiting for jumps...</div>
+        </div>
     </div>
 
     <script>
@@ -129,7 +306,7 @@
                 bleDevice.addEventListener('gattserverdisconnected', onDisconnect);
                 statusEl.innerText = "Connecting...";
                 bleServer = await bleDevice.gatt.connect();
-                
+
                 const service = await bleServer.getPrimaryService(SERVICE_UUID);
                 dataChar = await service.getCharacteristic(CHAR_UUID);
                 cmdChar = await service.getCharacteristic(CMD_UUID);
@@ -140,8 +317,8 @@
                 statusEl.innerText = "Connected";
                 ledEl.classList.add('connected');
                 btnConnect.innerText = "Disconnect";
-                btnCalibrate.style.display = "block";
-                
+                btnCalibrate.style.display = "flex";
+
             } catch (error) {
                 console.error(error); statusEl.innerText = "Connection failed";
             }
@@ -150,7 +327,7 @@
         function onDisconnect() {
             statusEl.innerText = "Disconnected";
             ledEl.classList.remove('connected');
-            btnConnect.innerText = "Connect Tracker";
+            btnConnect.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11"/></svg>Connect tracker';
             btnCalibrate.style.display = "none";
         }
 
@@ -159,16 +336,22 @@
             try {
                 let encoder = new TextEncoder();
                 await cmdChar.writeValue(encoder.encode("CALIBRATE"));
-                statusEl.innerText = "Calibrating (Keep still)...";
+                statusEl.innerText = "Calibrating (keep still)...";
                 setTimeout(() => {
-                    if (bleDevice && bleDevice.gatt.connected) statusEl.innerText = "Connected (Calibrated)";
-                }, 3200); // 3 секунды по новой логике + чуть запаса
+                    if (bleDevice && bleDevice.gatt.connected) statusEl.innerText = "Connected (calibrated)";
+                }, 3200);
             } catch (e) { console.error("Calibration error", e); }
         });
 
+        function popValue(el, text) {
+            el.innerText = text;
+            el.classList.remove('pop');
+            void el.offsetWidth;
+            el.classList.add('pop');
+        }
+
         function handleData(event) {
             let value = new TextDecoder().decode(event.target.value);
-            // Expected format: H:2.2,R:1.5,T:200,S:3.1
             let parts = value.split(',');
             let h = "0.0", r = "0.0", t = "0", s = "0.0";
 
@@ -176,20 +359,154 @@
                 if (p.startsWith('H:')) h = p.substring(2);
                 if (p.startsWith('R:')) r = p.substring(2);
                 if (p.startsWith('T:')) t = p.substring(2);
-                if (p.startsWith('S:')) s = p.substring(2); // Читаем скорость
+                if (p.startsWith('S:')) s = p.substring(2);
             });
 
-            document.getElementById('valHeight').innerText = h;
-            document.getElementById('valRots').innerText = r;
-            document.getElementById('valTime').innerText = t;
-            document.getElementById('valSpeed').innerText = s;
+            popValue(document.getElementById('valHeight'), h);
+            popValue(document.getElementById('valRots'), r);
+            popValue(document.getElementById('valTime'), t);
+            popValue(document.getElementById('valSpeed'), s);
 
             let timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
-            let logLine = `[${timeStr}] H: ${h}cm | R: ${r} | T: ${t}ms | S: ${s} rev/s<br>`;
-            
-            if (logEl.innerHTML.includes("Waiting")) logEl.innerHTML = "";
-            logEl.innerHTML = logLine + logEl.innerHTML;
+
+            if (logEl.querySelector('.log-empty')) logEl.innerHTML = "";
+
+            let row = document.createElement('div');
+            row.className = 'log-row';
+            row.innerHTML = `
+                <span class="log-time">${timeStr}</span>
+                <span class="log-metrics">
+                    <span class="m-h">${h}cm</span>
+                    <span class="m-r">${r}rot</span>
+                    <span class="m-s">${s}r/s</span>
+                </span>`;
+            logEl.insertBefore(row, logEl.firstChild);
         }
+
+        /* ---------------- Weight wheel picker ---------------- */
+        (function initWeightWheel() {
+            const MIN = 20, MAX = 110, STEP = 5;
+            const ITEM_H = 36;
+            const PAD = 48;
+            const values = [];
+            for (let v = MIN; v <= MAX; v += STEP) values.push(v);
+
+            const wheel = document.getElementById('weightWheel');
+            const weightNumberEl = document.getElementById('weightNumber');
+            const savedNote = document.getElementById('weightSavedNote');
+
+            values.forEach(v => {
+                const item = document.createElement('div');
+                item.className = 'wheel-item';
+                item.dataset.value = v;
+                item.textContent = v;
+                wheel.appendChild(item);
+            });
+
+            let currentIndex = values.indexOf(75);
+            if (currentIndex < 0) currentIndex = Math.floor(values.length / 2);
+
+            let isDragging = false;
+            let startY = 0, startOffset = 0, currentOffset = 0;
+
+            function indexToOffset(idx) { return -idx * ITEM_H; }
+
+            function applyOffset(offset, animate) {
+                wheel.style.transition = animate ? 'transform 0.25s cubic-bezier(0.16,1,0.3,1)' : 'none';
+                wheel.style.transform = 'translateY(' + offset + 'px)';
+                currentOffset = offset;
+
+                Array.from(wheel.children).forEach((item, i) => {
+                    const itemCenter = offset + PAD + i * ITEM_H + ITEM_H / 2;
+                    const dist = Math.abs(itemCenter - 66);
+                    const norm = Math.min(dist / 66, 1);
+                    const scale = 1 - norm * 0.22;
+                    const opacity = 1 - norm * 0.7;
+                    item.style.transform = 'scale(' + scale.toFixed(3) + ')';
+                    item.style.opacity = opacity.toFixed(3);
+                    item.style.fontWeight = norm < 0.15 ? '600' : '400';
+                    item.style.color = norm < 0.15 ? 'var(--accent-weight)' : 'var(--text-muted)';
+                });
+            }
+
+            function snapToNearest(animate) {
+                let idx = Math.round(-currentOffset / ITEM_H);
+                idx = Math.max(0, Math.min(values.length - 1, idx));
+                currentIndex = idx;
+                applyOffset(indexToOffset(idx), animate);
+                updateWeightNumber();
+            }
+
+            function updateWeightNumber() {
+                weightNumberEl.textContent = values[currentIndex];
+                weightNumberEl.style.transform = 'scale(1.08)';
+                setTimeout(() => { weightNumberEl.style.transform = 'scale(1)'; }, 120);
+                savedNote.classList.remove('show');
+                wheel.setAttribute('aria-valuenow', values[currentIndex]);
+            }
+
+            applyOffset(indexToOffset(currentIndex), false);
+            weightNumberEl.textContent = values[currentIndex];
+
+            function onStart(clientY) {
+                isDragging = true; startY = clientY; startOffset = currentOffset;
+                wheel.style.cursor = 'grabbing';
+            }
+            function onMove(clientY) {
+                if (!isDragging) return;
+                applyOffset(startOffset + (clientY - startY), false);
+            }
+            function onEnd() {
+                if (!isDragging) return;
+                isDragging = false; wheel.style.cursor = 'grab';
+                snapToNearest(true);
+            }
+
+            wheel.addEventListener('mousedown', e => onStart(e.clientY));
+            window.addEventListener('mousemove', e => onMove(e.clientY));
+            window.addEventListener('mouseup', onEnd);
+            wheel.addEventListener('touchstart', e => onStart(e.touches[0].clientY), {passive: true});
+            wheel.addEventListener('touchmove', e => onMove(e.touches[0].clientY), {passive: true});
+            wheel.addEventListener('touchend', onEnd);
+
+            wheel.addEventListener('wheel', e => {
+                e.preventDefault();
+                const dir = e.deltaY > 0 ? -1 : 1;
+                let idx = Math.max(0, Math.min(values.length - 1, currentIndex - dir));
+                currentIndex = idx;
+                applyOffset(indexToOffset(idx), true);
+                updateWeightNumber();
+            }, {passive: false});
+
+            wheel.addEventListener('keydown', e => {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+                    e.preventDefault();
+                    currentIndex = Math.min(values.length - 1, currentIndex + 1);
+                    applyOffset(indexToOffset(currentIndex), true);
+                    updateWeightNumber();
+                } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+                    e.preventDefault();
+                    currentIndex = Math.max(0, currentIndex - 1);
+                    applyOffset(indexToOffset(currentIndex), true);
+                    updateWeightNumber();
+                }
+            });
+
+            document.getElementById('btnSendWeight').addEventListener('click', async () => {
+                const w = values[currentIndex];
+                if (!cmdChar) {
+                    statusEl.innerText = "Connect tracker first";
+                    return;
+                }
+                try {
+                    let encoder = new TextEncoder();
+                    await cmdChar.writeValue(encoder.encode("WEIGHT:" + w));
+                    savedNote.classList.add('show');
+                } catch (e) {
+                    console.error("Weight send error", e);
+                }
+            });
+        })();
     </script>
 </body>
 </html>
